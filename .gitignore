@@ -1,0 +1,16 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+**/logs/
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env vars
+*.env
+application.properties
