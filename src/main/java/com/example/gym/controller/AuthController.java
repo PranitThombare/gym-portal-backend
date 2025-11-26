@@ -1,10 +1,13 @@
 package com.example.gym.controller;
 
+import com.example.gym.dto.ChangePasswordRequest;
 import com.example.gym.model.Role;
 import com.example.gym.model.User;
 import com.example.gym.security.JwtUtil;
 import com.example.gym.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
@@ -70,6 +73,22 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         return ResponseEntity.ok(Map.of("token", token));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody @Valid ChangePasswordRequest req, Authentication auth) {
+        String email = (String) auth.getPrincipal();
+        var opt = userService.findByEmail(email);
+        if (opt.isEmpty()) return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+
+        User user = opt.get();
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPassword())) {
+            return ResponseEntity.status(401).body(Map.of("error", "Current password is incorrect"));
+        }
+
+        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        userService.save(user);
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 }
 
