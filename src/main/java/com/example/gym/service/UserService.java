@@ -1,55 +1,32 @@
 package com.example.gym.service;
 
-import com.example.gym.model.Attendance;
 import com.example.gym.model.User;
-import com.example.gym.repository.AttendanceRepository;
 import com.example.gym.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class UserService {
-    private final UserRepository userRepo;
-    private final AttendanceRepository attendanceRepo;
+    private final UserRepository repo;
+    private final PasswordEncoder encoder;
 
-    public UserService(UserRepository userRepo, AttendanceRepository attendanceRepo) {
-        this.userRepo = userRepo;
-        this.attendanceRepo = attendanceRepo;
+    public UserService(UserRepository repo, PasswordEncoder encoder) {
+        this.repo = repo;
+        this.encoder = encoder;
     }
 
     public User register(User user) {
-        // validate, check existing, hash password later
-        return userRepo.save(user);
+        user.setPassword(encoder.encode(user.getPassword()));
+        return repo.save(user);
     }
 
-    public Optional<User> login(String username, String password) {
-        return userRepo.findByUsername(username)
-                .filter(u -> u.getPassword().equals(password)); // replace with bcrypt later
+    public Optional<User> findByEmail(String email) {
+        return repo.findByEmail(email);
     }
 
-    public Attendance markAttendance(String userId) {
-        Attendance att = new Attendance();
-        att.setUserId(userId);
-        att.setTimestamp(LocalDateTime.now());
-        att.setType("CHECKIN");
-        Attendance saved = attendanceRepo.save(att);
-        // attach to user
-        userRepo.findById(userId).ifPresent(u -> {
-            u.getAttendanceIds().add(saved.getId());
-            userRepo.save(u);
-        });
-        return saved;
-    }
+    public List<User> findAll() { return repo.findAll(); }
 
-    public List<Attendance> getUserAttendance(String userId) {
-        return attendanceRepo.findByUserId(userId);
-    }
-
-    public List<User> getAllUsers() {
-        return userRepo.findAll();
-    }
+    public Optional<User> findById(Long id) { return repo.findById(id); }
 }
-

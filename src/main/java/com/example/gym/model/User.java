@@ -1,21 +1,35 @@
 package com.example.gym.model;
 
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.*;
+import lombok.*;
 
-@Document(collection = "users")
-@Data
-public class User {
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User{
     @Id
-    private String id;
-    private String username;
-    private String email;
-    private String password; // plain for now; hash later
-    private String role = "USER"; // "USER" or "ADMIN"
-    private List<String> attendanceIds = new ArrayList<>();
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private String name;
+    private Integer age;
+    private Double weight;
+    private Double height;
+
+    private LocalDate joinDate;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String password; // stored encoded
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
 }

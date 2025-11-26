@@ -1,59 +1,52 @@
 package com.example.gym.controller;
 
-import com.example.gym.model.Attendance;
 import com.example.gym.model.User;
 import com.example.gym.service.UserService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.Optional;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
+    private final UserService service;
 
-    private final UserService userService;
-    public UserController(UserService userService) {
-        this.userService = userService;
+    public UserController(UserService service) {
+        this.service = service;
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody User user) {
-        User saved = userService.register(user);
-        // don't return password in real app — this is basic example
-        saved.setPassword(null);
-        return ResponseEntity.ok(saved);
+    // ADMIN: list all users
+    @GetMapping
+    public ResponseEntity<List<User>> getAllUsers(Authentication auth) {
+        // Security annotations already restrict; return list
+        List<User> users = service.findAll();
+        users.forEach(u -> u.setPassword(null));
+        return ResponseEntity.ok(users);
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
-        String username = body.get("username");
-        String password = body.get("password");
-
-        Optional<User> optUser = userService.login(username, password);
-
-        if (optUser.isPresent()) {
-            User user = optUser.get();
-            user.setPassword(null); // never return password in responses
-            return ResponseEntity.ok(user);                     // <-- returns a ResponseEntity<User>
-        } else {
-            // build a ResponseEntity with 401 and a small error body
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)            // <-- BodyBuilder
-                    .body(Map.of("error", "Invalid credentials")); // <-- .body(...) produces ResponseEntity
-        }
+    // Any logged-in user: get own profile
+    @GetMapping("/me")
+    public ResponseEntity<?> getProfile(Authentication auth) {
+        String email = (String) auth.getPrincipal();
+        return service.findByEmail(email)
+                .map(u -> {
+                    u.setPassword(null);
+                    return ResponseEntity.ok(u);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{userId}/attendance")
-    public ResponseEntity<Attendance> markAttendance(@PathVariable String userId) {
-        Attendance a = userService.markAttendance(userId);
-        return ResponseEntity.ok(a);
-    }
-
-    @GetMapping("/{userId}/attendance")
-    public ResponseEntity<?> getAttendance(@PathVariable String userId) {
-        return ResponseEntity.ok(userService.getUserAttendance(userId));
+    // Admin can get a user by id (optional)
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable Long id) {
+        return service.findById(id)
+                .map(u -> {
+                    u.setPassword(null);
+                    return ResponseEntity.ok(u);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
+
