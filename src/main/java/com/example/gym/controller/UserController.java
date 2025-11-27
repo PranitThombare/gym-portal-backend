@@ -4,6 +4,7 @@ import com.example.gym.dto.UserUpdateDto;
 import com.example.gym.model.User;
 import com.example.gym.service.UserService;
 import jakarta.validation.Valid;
+import org.apache.commons.io.FilenameUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,7 +13,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 
@@ -20,9 +25,16 @@ import java.util.Map;
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService service;
+    private final Path uploadDir = Path.of("uploads");
 
     public UserController(UserService service) {
         this.service = service;
+        try {
+            Files.createDirectories(uploadDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not create upload dir", e);
+        }
+
     }
 
     // ADMIN: list all users
@@ -101,6 +113,35 @@ public class UserController {
         // never return passwords
         users.forEach(u -> u.setPassword(null));
         return ResponseEntity.ok(users);
+    }
+
+
+    @PostMapping("/me/photo")
+    public ResponseEntity<?> uploadPhoto(@RequestParam("file") MultipartFile file, Authentication auth) {
+        String email = (String) auth.getPrincipal();
+        var opt = service.findByEmail(email);
+        if (opt.isEmpty()) return ResponseEntity.status(404).body(Map.of("error","User not found"));
+
+        var user = opt.get();
+        if (file.isEmpty()) return ResponseEntity.badRequest().body(Map.of("error","File is empty"));
+
+        // basic extension check
+        String ext = FilenameUtils.getExtension(file.getOriginalFilename());
+        if (ext == null || ext.isBlank()) ext = "jpg";
+        String filename = "user-" + user.getId() + "-" + System.currentTimeMillis() + "." + ext;
+
+        Path target = uploadDir.resolve(filename);
+        try {
+            // Save file
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            // update user record
+            user.setPhotoFilename(filename);
+            service.save(user);
+            String url = "/files/" + filename; // accessible via WebConfig resource handler
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body(Map.of("error","Failed to save file"));
+        }
     }
 }
 

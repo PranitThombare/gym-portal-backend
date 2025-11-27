@@ -32,4 +32,7 @@ public class User{
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Column(name = "photo_filename")
+    private String photoFilename;
 }
